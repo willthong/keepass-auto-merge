@@ -32,7 +32,14 @@ def test_configure_with_flags_needs_no_tty(tmp_path: Path, capsys) -> None:
     watch = watch_dir(tmp_path)
 
     code, out, _ = run(
-        capsys, "configure", "--config", str(config_file(tmp_path)), "--watch-directory", str(watch)
+        capsys,
+        "configure",
+        "--config",
+        str(config_file(tmp_path)),
+        "--watch-directory",
+        str(watch),
+        "--units-dir",
+        str(tmp_path / "units"),
     )
 
     assert code == 0
@@ -50,6 +57,8 @@ def test_configure_sets_any_key(tmp_path: Path, capsys) -> None:
         str(config_file(tmp_path)),
         "--watch-directory",
         str(watch),
+        "--units-dir",
+        str(tmp_path / "units"),
         "--backup-keep",
         "3",
         "--on-merged",
@@ -77,6 +86,8 @@ def test_configure_refuses_a_missing_watch_directory(tmp_path: Path, capsys) -> 
         str(config_file(tmp_path)),
         "--watch-directory",
         str(tmp_path / "gone"),
+        "--units-dir",
+        str(tmp_path / "units"),
     )
 
     assert code == 1
@@ -132,7 +143,17 @@ def test_interactive_configure_prefills_existing_values(
     watch = watch_dir(tmp_path)
     path = config_file(tmp_path)
     cli.main(
-        ["configure", "--config", str(path), "--watch-directory", str(watch), "--backup-keep", "2"]
+        [
+            "configure",
+            "--config",
+            str(path),
+            "--watch-directory",
+            str(watch),
+            "--units-dir",
+            str(tmp_path / "units"),
+            "--backup-keep",
+            "2",
+        ]
     )
     capsys.readouterr()
 
@@ -218,7 +239,17 @@ def test_check_reports_every_effective_setting(tmp_path: Path, capsys) -> None:
     watch = watch_dir(tmp_path)
     (watch / "keepass.kdbx").write_bytes(b"master")
     path = config_file(tmp_path)
-    cli.main(["configure", "--config", str(path), "--watch-directory", str(watch)])
+    cli.main(
+        [
+            "configure",
+            "--config",
+            str(path),
+            "--watch-directory",
+            str(watch),
+            "--units-dir",
+            str(tmp_path / "units"),
+        ]
+    )
     capsys.readouterr()
 
     code, out, _ = run(capsys, "check", "--config", str(path))
@@ -227,3 +258,28 @@ def test_check_reports_every_effective_setting(tmp_path: Path, capsys) -> None:
     assert str(path) in out
     for setting in config_module.SETTINGS:
         assert setting.name in out
+
+
+def test_unwritable_units_directory_fails_clearly(tmp_path: Path, capsys) -> None:
+    """The config is valid, but the units cannot be written: say so, don't traceback."""
+    watch = watch_dir(tmp_path)
+    blocked = tmp_path / "blocked"
+    blocked.write_text("not a directory", encoding="utf-8")
+
+    code, _, err = run(
+        capsys,
+        "configure",
+        "--config",
+        str(config_file(tmp_path)),
+        "--watch-directory",
+        str(watch),
+        "--units-dir",
+        str(blocked),
+    )
+
+    assert code == 1
+    assert "units" in err.lower()
+    assert str(blocked) in err
+    assert "root" in err.lower() or "permission" in err.lower()
+    # the configuration itself was applied before the failure
+    assert load(config_file(tmp_path)).watch_directory == watch

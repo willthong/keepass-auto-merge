@@ -231,11 +231,18 @@ def configure_command(args: argparse.Namespace) -> int:
 
 
 def _regenerate_units(args: argparse.Namespace, values: dict) -> int:
-    if args.units_dir:
+    try:
         args.units_dir.mkdir(parents=True, exist_ok=True)
         for name, content in units.render(load(args.config)).items():
             (args.units_dir / name).write_text(content, encoding="utf-8")
-        print(f"wrote units to {args.units_dir}")
+    except OSError as exc:
+        print(f"error: cannot write units to {args.units_dir}: {exc.strerror}", file=sys.stderr)
+        print(
+            "the configuration was written; re-run as root, or pass --units-dir",
+            file=sys.stderr,
+        )
+        return EXIT_FAILURE
+    print(f"wrote units to {args.units_dir}")
 
     if _systemd_available():
         for command in (
