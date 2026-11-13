@@ -97,3 +97,11 @@ def test_readme_says_comments_in_the_config_are_not_preserved() -> None:
 
     assert "comment" in readme
     assert "configure" in readme
+
+
+def test_readme_install_uses_apt_not_bare_dpkg() -> None:
+    """`dpkg -i` does not resolve Depends; the documented command must."""
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+    assert "apt install ./" in readme
+    assert "dpkg -i" in readme  # mentioned only to warn about it

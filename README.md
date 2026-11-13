@@ -42,6 +42,13 @@ keepass-auto-merge verify
 keepass-auto-merge check
 ```
 
+Use `apt install ./<file>.deb`, not `dpkg -i`: the package depends on `keepassxc` and
+`python3-tomli-w`, and only apt resolves those. If you already ran `dpkg -i` and it stopped on
+dependencies, finish the job with `sudo apt install -f`.
+
+Upgrading from 0.1.0 replaces the packaged config file with the defaults-only version; if you
+edited `/etc/keepass-auto-merge/config.toml` by hand, dpkg will ask before replacing it.
+
 `configure` is the only supported way to write the configuration. Run it bare on a terminal to be
 asked the questions, or pass flags for scripts and cron; it never prompts when there is no
 terminal.

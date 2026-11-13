@@ -84,12 +84,15 @@ PRERM = """\
 #!/bin/sh
 set -e
 
-if [ -d /run/systemd/system ]; then
-    systemctl disable keepass-auto-merge.path || true
-    systemctl disable keepass-auto-merge.timer || true
-    systemctl stop keepass-auto-merge.path || true
-    systemctl stop keepass-auto-merge.timer || true
+# Drop whatever of our units is enabled, present, or neither: this must be silent and idempotent
+# because upgrades arrive from releases that shipped a different set of units.
+if command -v systemctl >/dev/null 2>&1; then
+    for unit in keepass-auto-merge.path keepass-auto-merge.timer keepass-auto-merge.service; do
+        systemctl disable --now "$unit" >/dev/null 2>&1 || true
+    done
 fi
+
+exit 0
 """
 
 WRAPPER = """\

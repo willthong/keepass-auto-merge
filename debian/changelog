@@ -1,3 +1,12 @@
+keepass-auto-merge (0.2.1) unstable; urgency=low
+
+  * Fix: removing or upgrading the package no longer fails or complains when a
+    unit it expects was never installed.
+  * README: install with `apt install ./<file>.deb`, because `dpkg -i` does not
+    resolve the package's dependencies.
+
+ -- willthong <willthong@users.noreply.github.com>  Thu, 13 Nov 2026 14:40:00 +0000
+
 keepass-auto-merge (0.2.0) unstable; urgency=low
 
   * configure: write the configuration file from flags or interactive prompts,

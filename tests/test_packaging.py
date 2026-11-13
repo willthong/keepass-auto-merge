@@ -199,3 +199,61 @@ def test_postinst_tells_the_user_to_run_configure(tmp_path: Path) -> None:
 
     assert "keepass-auto-merge configure" in postinst
     assert "keepass-auto-merge provision" in postinst
+
+
+@needs_dpkg
+def test_prerm_is_silent_when_the_units_do_not_exist(tmp_path: Path) -> None:
+    """Upgrading from a release that shipped no path unit must not spray errors."""
+    import build_deb
+
+    deb = build_deb.build(version="1.2.3", dest=tmp_path)
+    prerm = subprocess.run(
+        ["dpkg-deb", "-I", str(deb), "prerm"], capture_output=True, text=True, check=True
+    ).stdout
+    script = tmp_path / "prerm"
+    script.write_text(prerm, encoding="utf-8")
+    script.chmod(0o755)
+
+    stub = tmp_path / "bin"
+    stub.mkdir()
+    record = tmp_path / "calls.log"
+    systemctl = stub / "systemctl"
+    systemctl.write_text(
+        f"""#!/bin/sh
+echo "$@" >> {record}
+echo "Failed to disable unit: Unit file keepass-auto-merge.path does not exist." >&2
+exit 1
+""",
+        encoding="utf-8",
+    )
+    systemctl.chmod(0o755)
+    env = {**dict(__import__("os").environ), "PATH": f"{stub}:/usr/bin:/bin"}
+
+    result = subprocess.run([str(script), "remove"], capture_output=True, text=True, env=env)
+
+    calls = record.read_text(encoding="utf-8")
+    assert "keepass-auto-merge.path" in calls
+    assert "keepass-auto-merge.timer" in calls
+    assert result.returncode == 0
+    assert result.stderr == ""
+
+
+@needs_dpkg
+def test_prerm_succeeds_without_systemctl(tmp_path: Path) -> None:
+    import build_deb
+
+    deb = build_deb.build(version="1.2.3", dest=tmp_path)
+    prerm = subprocess.run(
+        ["dpkg-deb", "-I", str(deb), "prerm"], capture_output=True, text=True, check=True
+    ).stdout
+    script = tmp_path / "prerm"
+    script.write_text(prerm, encoding="utf-8")
+    script.chmod(0o755)
+    empty = tmp_path / "empty-bin"
+    empty.mkdir()
+    env = {"PATH": str(empty)}
+
+    result = subprocess.run([str(script), "remove"], capture_output=True, text=True, env=env)
+
+    assert result.returncode == 0
+    assert result.stderr == ""
