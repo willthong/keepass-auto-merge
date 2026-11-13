@@ -209,7 +209,10 @@ def test_provision_pipes_to_the_real_systemd_creds_when_available(tmp_path: Path
     from keepass_auto_merge import credential
 
     dest = tmp_path / "cred"
-    credential.provision(PASSWORD, dest)
+    try:
+        credential.provision(PASSWORD, dest)
+    except credential.CredentialError as exc:  # e.g. no host secret in a container
+        pytest.skip(f"systemd-creds cannot encrypt here: {exc}")
     decrypted = subprocess.run(
         ["systemd-creds", "decrypt", str(dest), "-"],
         capture_output=True,

@@ -81,8 +81,12 @@ def test_units_pass_systemd_analyze_verify(tmp_path: Path, tmp_path_factory) -> 
 
     import subprocess
 
+    executed = shutil.which("keepass-auto-merge")
+    if executed is None:
+        pytest.skip("the keepass-auto-merge console script is not installed")
+
     directory = tmp_path_factory.mktemp("units")
-    for name, content in units.render(config(tmp_path)).items():
+    for name, content in units.render(config(tmp_path), executable=executed).items():
         (directory / name).write_text(content, encoding="utf-8")
     result = subprocess.run(
         ["systemd-analyze", "verify", "--man=no", *sorted(directory.iterdir())],
