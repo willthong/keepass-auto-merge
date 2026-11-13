@@ -152,7 +152,8 @@ def test_shipped_service_loads_the_credential_provision_writes(tmp_path: Path) -
     config = (unpacked / "etc/keepass-auto-merge/config.toml").read_text(encoding="utf-8")
 
     assert 'credential_name = "keepass-auto-merge.password"' in config
-    assert "LoadCredential=keepass-auto-merge.password" in service
+    assert "LoadCredentialEncrypted=keepass-auto-merge.password" in service
+    assert "LoadCredential=" not in service
 
 
 @needs_dpkg

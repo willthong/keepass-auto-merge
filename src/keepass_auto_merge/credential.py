@@ -1,8 +1,8 @@
 """The credential: the one master password shared by every database.
 
 The password is encrypted with `systemd-creds` into the system credential store and reaches the
-service through `LoadCredential=` (ADR-0002). It is never passed in argv, the environment, or the
-config file: every hand-off goes through stdin or a file read.
+service through `LoadCredentialEncrypted=` (ADR-0002). It is never passed in argv, the
+environment, or the config file: every hand-off goes through stdin or a file read.
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ def provision(password: str, dest: Path, *, name: str = DEFAULT_NAME) -> None:
 
 
 def read(path: Path) -> str:
-    """Read a decrypted credential file, as exposed by systemd's LoadCredential."""
+    """Read a decrypted credential file, as exposed by systemd's LoadCredentialEncrypted."""
     try:
         value = path.read_text(encoding="utf-8")
     except FileNotFoundError as exc:
@@ -84,8 +84,9 @@ def decrypt(path: Path, name: str = DEFAULT_NAME) -> str:
 def load(explicit_path: Path | None = None, name: str = DEFAULT_NAME) -> str:
     """The master password, wherever it happens to live.
 
-    Under systemd, LoadCredential has already decrypted it into $CREDENTIALS_DIRECTORY. Outside a
-    unit the file on disk is still ciphertext, so it has to be decrypted explicitly; reading it as
+    Under systemd, LoadCredentialEncrypted has already decrypted it into $CREDENTIALS_DIRECTORY.
+    Outside a unit the file on disk is still ciphertext, so it has to be decrypted explicitly;
+    reading it as
     text would feed the ciphertext to the merge engine and look like a wrong password.
     """
     if explicit_path is not None:

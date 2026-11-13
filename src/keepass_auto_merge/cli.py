@@ -161,7 +161,8 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def provision_command(args: argparse.Namespace) -> int:
-    # The config decides the credential name so it cannot drift from LoadCredential= in the unit.
+    # The config decides the credential name so it cannot drift from the unit's
+    # LoadCredentialEncrypted= line.
     name = args.name or _configured_credential_name(args.config)
     dest = args.dest or credential.provision_path(name)
     password = credential.prompt_password()

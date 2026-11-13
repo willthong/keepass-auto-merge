@@ -20,7 +20,7 @@ report when a merge is not a clean fast-forward.
 - Before each merge the two databases are compared. Anything that is not a clean fast-forward is
   logged at `ERROR` naming the affected entries, and the run exits `2`.
 - The credential is the master password, stored with `systemd-creds` and handed to the service via
-  `LoadCredential=`. It is never in the config file, argv, or the environment.
+  `LoadCredentialEncrypted=`. It is never in the config file, argv, or the environment.
 
 ## Exit codes
 

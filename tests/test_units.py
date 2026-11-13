@@ -44,7 +44,9 @@ def test_service_runs_the_merge_as_the_service_user(tmp_path: Path) -> None:
 def test_service_receives_the_credential_from_systemd(tmp_path: Path) -> None:
     service = units.render(config(tmp_path))["keepass-auto-merge.service"]
 
-    assert "LoadCredential=keepass-auto-merge.password" in service
+    assert "LoadCredentialEncrypted=keepass-auto-merge.password" in service
+    # the plain directive searches only the non-encrypted store and silently finds nothing
+    assert "LoadCredential=" not in service
 
 
 def test_path_unit_watches_the_configured_directory(tmp_path: Path) -> None:
@@ -163,4 +165,5 @@ def test_service_loads_the_configured_credential_name(tmp_path: Path) -> None:
         "keepass-auto-merge.service"
     ]
 
-    assert "LoadCredential=kdbx.pw" in service
+    assert "LoadCredentialEncrypted=kdbx.pw" in service
+    assert "LoadCredential=" not in service

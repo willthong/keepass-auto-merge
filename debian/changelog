@@ -1,3 +1,13 @@
+keepass-auto-merge (0.3.2) unstable; urgency=low
+
+  * Fix: the service unit used LoadCredential=, which searches only the plain
+    credential store. The credential lives in /etc/credstore.encrypted/, so
+    systemd silently started the service without the password and the run
+    failed with "credential not found". The unit now uses
+    LoadCredentialEncrypted=, which decrypts the credential at start.
+
+ -- willthong <willthong@users.noreply.github.com>  Thu, 13 Nov 2026 16:25:00 +0000
+
 keepass-auto-merge (0.3.1) unstable; urgency=low
 
   * Fix: verify/run outside systemd must be run as root because systemd's
