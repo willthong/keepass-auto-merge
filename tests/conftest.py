@@ -43,3 +43,39 @@ def stub_bin(tmp_path: Path) -> Path:
     directory = tmp_path / "stub-bin"
     directory.mkdir()
     return directory
+
+
+def _run_cli(args: list[str], password: str) -> str:
+    result = subprocess.run(
+        ["keepassxc-cli", *args], input=f"{password}\n", text=True, capture_output=True
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"keepassxc-cli {' '.join(args)} failed: {result.stderr}")
+    return result.stdout
+
+
+def list_entries(path: Path, password: str = PASSWORD) -> list[str]:
+    """Relative paths of every entry in the database, skipping the recycle bin."""
+    out = _run_cli(["ls", "-q", "-R", str(path)], password)
+    return sorted(line.strip() for line in out.splitlines() if line.strip())
+
+
+def entry_password(path: Path, title: str, password: str = PASSWORD) -> str:
+    return _run_cli(["show", "-q", "-a", "Password", str(path), title], password).strip()
+
+
+def set_entry_password(path: Path, title: str, new_value: str, password: str = PASSWORD) -> None:
+    """Change an entry's password, which bumps its modification time."""
+    subprocess.run(
+        ["keepassxc-cli", "edit", "-q", "-p", str(path), title],
+        input=f"{password}\n{new_value}\n{new_value}\n",
+        text=True,
+        check=True,
+        capture_output=True,
+    )
+
+
+def archive_of(path: Path, name: str) -> Path:
+    directory = path / name
+    directory.mkdir(exist_ok=True)
+    return directory

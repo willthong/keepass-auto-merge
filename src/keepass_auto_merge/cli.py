@@ -13,6 +13,7 @@ from . import __version__, credential
 from .config import Config, ConfigError, load
 from .discovery import DiscoveryError, discover
 from .engine import EngineError, unlock_check
+from .merge import run as run_merge
 
 DEFAULT_CONFIG = Path("/etc/keepass-auto-merge/config.toml")
 
@@ -57,6 +58,12 @@ def build_parser() -> argparse.ArgumentParser:
     run_cmd.add_argument(
         "--dry-run", action="store_true", help="report what would happen without writing anything"
     )
+    run_cmd.add_argument(
+        "--credential-file",
+        type=Path,
+        default=None,
+        help="read the credential from this file instead of systemd's $CREDENTIALS_DIRECTORY",
+    )
 
     provision_cmd = sub.add_parser(
         "provision",
@@ -95,6 +102,8 @@ def main(argv: list[str] | None = None) -> int:
         config = load(args.config)
         if args.command == "check":
             return check(config)
+        if args.command == "run":
+            return run_command(args, config)
     except (ConfigError, DiscoveryError, credential.CredentialError, EngineError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_FAILURE
@@ -110,6 +119,32 @@ def provision_command(args: argparse.Namespace) -> int:
     print(f"name: {args.name}")
     print("next: enable and start the keepass-auto-merge path unit and timer")
     return EXIT_OK
+
+
+def run_command(args: argparse.Namespace, config: Config) -> int:
+    credential_path = args.credential_file or credential.default_path()
+    password = credential.read(credential_path)
+    report = run_merge(config, password, dry_run=args.dry_run)
+
+    if args.dry_run:
+        if not report.planned:
+            print("dry run: nothing to do")
+            return EXIT_OK
+        print(f"dry run: would merge {len(report.planned)} conflict file(s)")
+        for path in report.planned:
+            print(f"  {path.name}")
+        return EXIT_OK
+
+    print(f"merged {len(report.merged)} conflict file(s) into {config.master_path}")
+    if report.backup:
+        print(f"backup: {report.backup}")
+    for path in report.archived:
+        print(f"archived: {path}")
+    for path in report.deleted:
+        print(f"deleted: {path}")
+    for path, reason in report.failed:
+        print(f"error: {path.name}: {reason}", file=sys.stderr)
+    return EXIT_OK if report.ok else EXIT_FAILURE
 
 
 def verify_command(args: argparse.Namespace) -> int:

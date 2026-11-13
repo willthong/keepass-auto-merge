@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import subprocess
+from pathlib import Path
 
 DEFAULT_CLI = "keepassxc-cli"
 
@@ -31,3 +32,16 @@ def unlock_check(master: object, password: str, *, cli: str = DEFAULT_CLI) -> No
         detail = (result.stderr or "").strip().splitlines()
         reason = detail[-1] if detail else f"exit {result.returncode}"
         raise EngineError(f"credential does not unlock {master}: {reason}")
+
+
+def merge_into(target: object, conflict: object, password: str, *, cli: str = DEFAULT_CLI) -> str:
+    """Merge `conflict` into `target` in place, with one password for both databases."""
+    result = _run(
+        [cli, "merge", "-s", str(target), str(conflict)],
+        password,
+    )
+    if result.returncode != 0:
+        detail = (result.stderr or "").strip().splitlines()
+        reason = detail[-1] if detail else f"exit {result.returncode}"
+        raise EngineError(f"merge failed for {Path(conflict).name}: {reason}")
+    return result.stdout
