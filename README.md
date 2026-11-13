@@ -32,6 +32,8 @@ report when a merge is not a clean fast-forward.
 
 ## Install
 
+Download the `.deb` from [Releases](https://github.com/willthong/keepass-auto-merge/releases):
+
 ```sh
 sudo apt install ./keepass-auto-merge_<version>_all.deb
 sudo keepass-auto-merge provision      # reads the master password on stdin
