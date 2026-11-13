@@ -1,0 +1,76 @@
+"""The credential: the one master password shared by every database.
+
+The password is encrypted with `systemd-creds` into the system credential store and reaches the
+service through `LoadCredential=` (ADR-0002). It is never passed in argv, the environment, or the
+config file: every hand-off goes through stdin or a file read.
+"""
+
+from __future__ import annotations
+
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+DEFAULT_NAME = "keepass-auto-merge.password"
+DEFAULT_CREDSTORE = Path("/etc/credstore.encrypted")
+
+
+class CredentialError(Exception):
+    """The credential could not be stored, read, or does not unlock the database."""
+
+
+def provision(password: str, dest: Path, *, name: str = DEFAULT_NAME) -> None:
+    """Encrypt `password` into `dest` using systemd-creds, reading it from stdin."""
+    if not password:
+        raise CredentialError("refusing to store an empty password")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        subprocess.run(
+            ["systemd-creds", "encrypt", f"--name={name}", "-", str(dest)],
+            input=password,
+            text=True,
+            check=True,
+            capture_output=True,
+        )
+    except FileNotFoundError as exc:
+        raise CredentialError("systemd-creds not found; install systemd") from exc
+    except subprocess.CalledProcessError as exc:
+        raise CredentialError(
+            f"systemd-creds failed: {exc.stderr.strip() or exc.returncode}"
+        ) from exc
+
+
+def read(path: Path) -> str:
+    """Read a decrypted credential file, as exposed by systemd's LoadCredential."""
+    try:
+        value = path.read_text(encoding="utf-8")
+    except FileNotFoundError as exc:
+        raise CredentialError(f"credential not found: {path}") from exc
+    except OSError as exc:
+        raise CredentialError(f"cannot read credential {path}: {exc}") from exc
+    password = value.rstrip("\n")
+    if not password:
+        raise CredentialError(f"credential is empty: {path}")
+    return password
+
+
+def default_path(name: str = DEFAULT_NAME) -> Path:
+    """Where systemd makes the credential available inside the service."""
+    directory = os.environ.get("CREDENTIALS_DIRECTORY")
+    if directory:
+        return Path(directory) / name
+    return DEFAULT_CREDSTORE / name
+
+
+def prompt_password(stream: object = None) -> str:
+    """Read the password from stdin, never echoing it and never requiring a TTY."""
+    stream = stream or sys.stdin
+    if hasattr(stream, "isatty") and stream.isatty():
+        import getpass
+
+        password = getpass.getpass("Master password: ")
+        if getpass.getpass("Repeat: ") != password:
+            raise CredentialError("passwords did not match")
+        return password
+    return stream.read().rstrip("\n")

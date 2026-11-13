@@ -9,9 +9,10 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import __version__
+from . import __version__, credential
 from .config import Config, ConfigError, load
 from .discovery import DiscoveryError, discover
+from .engine import EngineError, unlock_check
 
 DEFAULT_CONFIG = Path("/etc/keepass-auto-merge/config.toml")
 
@@ -53,6 +54,25 @@ def build_parser() -> argparse.ArgumentParser:
         "run", parents=[common], help="merge every conflict file into the master database"
     )
     run_cmd.add_argument("--version", action="version", version=VERSION_STRING)
+    run_cmd.add_argument(
+        "--dry-run", action="store_true", help="report what would happen without writing anything"
+    )
+
+    provision_cmd = sub.add_parser(
+        "provision",
+        parents=[common],
+        help="encrypt the master password into the system credential store (reads stdin)",
+    )
+    provision_cmd.add_argument("--dest", type=Path, default=credential.default_path())
+    provision_cmd.add_argument("--name", default=credential.DEFAULT_NAME)
+
+    verify_cmd = sub.add_parser(
+        "verify",
+        parents=[common],
+        help="prove the stored credential unlocks the master database",
+    )
+    verify_cmd.add_argument("--credential-file", type=Path, default=None)
+    verify_cmd.add_argument("--master", type=Path, default=None)
     return parser
 
 
@@ -67,15 +87,41 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_USAGE
 
     try:
+        if args.command == "provision":
+            return provision_command(args)
+        if args.command == "verify":
+            return verify_command(args)
+
         config = load(args.config)
         if args.command == "check":
             return check(config)
-    except (ConfigError, DiscoveryError) as exc:
+    except (ConfigError, DiscoveryError, credential.CredentialError, EngineError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_FAILURE
 
     print(f"error: unknown command {args.command}", file=sys.stderr)
     return EXIT_USAGE
+
+
+def provision_command(args: argparse.Namespace) -> int:
+    password = credential.prompt_password()
+    credential.provision(password, args.dest, name=args.name)
+    print(f"credential written to {args.dest}")
+    print(f"name: {args.name}")
+    print("next: enable and start the keepass-auto-merge path unit and timer")
+    return EXIT_OK
+
+
+def verify_command(args: argparse.Namespace) -> int:
+    credential_path = args.credential_file or credential.default_path()
+    password = credential.read(credential_path)
+    master = args.master
+    if master is None:
+        config = load(args.config)
+        master = config.master_path
+    unlock_check(master, password)
+    print(f"credential unlocks {master}")
+    return EXIT_OK
 
 
 def check(config: Config) -> int:
