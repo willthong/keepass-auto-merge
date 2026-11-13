@@ -13,6 +13,7 @@ from . import __version__, credential
 from .config import Config, ConfigError, load
 from .discovery import DiscoveryError, discover
 from .engine import EngineError, unlock_check
+from .merge import AlreadyRunning
 from .merge import run as run_merge
 
 DEFAULT_CONFIG = Path("/etc/keepass-auto-merge/config.toml")
@@ -125,7 +126,11 @@ def provision_command(args: argparse.Namespace) -> int:
 def run_command(args: argparse.Namespace, config: Config) -> int:
     credential_path = args.credential_file or credential.default_path()
     password = credential.read(credential_path)
-    report = run_merge(config, password, dry_run=args.dry_run)
+    try:
+        report = run_merge(config, password, dry_run=args.dry_run)
+    except AlreadyRunning as exc:
+        print(f"skipping: {exc}")
+        return EXIT_OK
 
     if args.dry_run:
         if not report.planned:

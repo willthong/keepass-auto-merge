@@ -8,6 +8,7 @@ merge.
 
 from __future__ import annotations
 
+import fcntl
 import os
 import shutil
 import tempfile
@@ -21,6 +22,11 @@ from .engine import export_xml, merge_into
 from .fastforward import classify, parse_export
 
 BACKUP_SUFFIX = ".bak"
+LOCK_NAME = ".keepass-auto-merge.lock"
+
+
+class AlreadyRunning(Exception):
+    """Another run holds the lock; overlapping triggers must not interleave."""
 
 
 @dataclass(frozen=True)
@@ -44,6 +50,34 @@ class RunReport:
 
 
 def run(config: Config, password: str, *, dry_run: bool = False) -> RunReport:
+    """Merge every conflict file. Raises AlreadyRunning if a run is in progress."""
+    with _lock(config):
+        return _run_locked(config, password, dry_run=dry_run)
+
+
+class _lock:
+    """An exclusive advisory lock in the watch directory, released on exit."""
+
+    def __init__(self, config: Config) -> None:
+        self.path = config.watch_directory / LOCK_NAME
+        self.handle = None
+
+    def __enter__(self) -> _lock:
+        self.handle = open(self.path, "w", encoding="utf-8")
+        try:
+            fcntl.flock(self.handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            self.handle.close()
+            raise AlreadyRunning(f"another run is in progress (lock: {self.path})") from exc
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        if self.handle is not None:
+            fcntl.flock(self.handle, fcntl.LOCK_UN)
+            self.handle.close()
+
+
+def _run_locked(config: Config, password: str, *, dry_run: bool = False) -> RunReport:
     found = discover(config)
     planned = found.conflicts
     if not planned:
