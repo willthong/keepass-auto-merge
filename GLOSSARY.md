@@ -36,6 +36,20 @@ The master password shared by the master database and every conflict file, store
 systemd-creds and supplied to the merge process.
 _Avoid_: secret, password, passphrase
 
+**Configure**:
+The verb that turns an unconfigured installation into a working one: it writes the configuration
+file, then regenerates the units from it. It never creates the watch directory.
+_Avoid_: setup, init, wizard
+
+**Unconfigured**:
+The state of an installation whose configuration file exists but lacks a value the tool cannot
+invent, currently only the watch directory. Every command refuses to run and names `configure`.
+
+**Conffile**:
+The configuration file shipped by the package at a fixed path, which the package manager preserves
+and merges across upgrades.
+_Avoid_: settings file, config file (when the packaged one is meant)
+
 **Watch directory**:
 The configured directory that holds the master database and the conflict files the service scans.
 _Avoid_: sync folder, Dropbox folder, data dir
