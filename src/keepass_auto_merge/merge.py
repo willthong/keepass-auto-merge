@@ -94,10 +94,15 @@ def _run_locked(config: Config, password: str, *, dry_run: bool = False) -> RunR
     archived: list[Path] = []
     deleted: list[Path] = []
 
+    # Judge every conflict file against the master as it was before this run started. Comparing
+    # later files against an already-merged master would report the earlier files' additions as
+    # deletions and turn the attention signal into noise.
+    baseline = parse_export(export_xml(found.master, password, cli=config.keepassxc_cli))
+
     attention: list[str] = []
     for conflict in planned:
         try:
-            attention.extend(_classify(found.master, conflict, password, cli=config.keepassxc_cli))
+            attention.extend(_classify(baseline, conflict, password, cli=config.keepassxc_cli))
             _merge_one(found.master, conflict, password, cli=config.keepassxc_cli)
         except Exception as exc:
             failed.append((conflict, str(exc)))
@@ -125,10 +130,10 @@ def _run_locked(config: Config, password: str, *, dry_run: bool = False) -> RunR
     )
 
 
-def _classify(master: Path, conflict: Path, password: str, *, cli: str) -> list[str]:
+def _classify(baseline: dict, conflict: Path, password: str, *, cli: str) -> list[str]:
     """Read-only: report anything about this merge that is not a clean fast-forward."""
     result = classify(
-        parse_export(export_xml(master, password, cli=cli)),
+        baseline,
         parse_export(export_xml(conflict, password, cli=cli)),
     )
     if result.clean:

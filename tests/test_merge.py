@@ -210,3 +210,24 @@ def test_nothing_to_do_is_not_an_error(tmp_path: Path) -> None:
 
     assert report.merged == []
     assert report.failed == []
+
+
+def test_two_stale_copies_that_only_add_entries_need_no_attention(tmp_path: Path) -> None:
+    """Each conflict file is judged against the master as it was before the run began.
+
+    Comparing later files against an already-merged master would make every multi-file run look
+    like a deletion and turn the attention signal into noise.
+    """
+    master = create_db(tmp_path / "keepass.kdbx")
+    add_entry(master, "base")
+    first = diverged_copy(master, tmp_path / "keepass.sync-conflict-a.kdbx")
+    add_entry(first, "from-a")
+    second = diverged_copy(master, tmp_path / "keepass.sync-conflict-b.kdbx")
+    add_entry(second, "from-b")
+
+    report = merge.run(config(tmp_path), PASSWORD)
+
+    assert report.failed == []
+    assert report.attention == []
+    assert "from-a" in list_entries(master)
+    assert "from-b" in list_entries(master)
