@@ -18,7 +18,7 @@ from pathlib import Path
 
 from .config import Config
 from .discovery import discover
-from .engine import export_xml, merge_into
+from .engine import DEFAULT_CLI, export_xml, merge_into
 from .fastforward import classify, parse_export
 
 BACKUP_SUFFIX = ".bak"
@@ -97,13 +97,13 @@ def _run_locked(config: Config, password: str, *, dry_run: bool = False) -> RunR
     # Judge every conflict file against the master as it was before this run started. Comparing
     # later files against an already-merged master would report the earlier files' additions as
     # deletions and turn the attention signal into noise.
-    baseline = parse_export(export_xml(found.master, password, cli=config.keepassxc_cli))
+    baseline = parse_export(export_xml(found.master, password, cli=DEFAULT_CLI))
 
     attention: list[str] = []
     for conflict in planned:
         try:
-            attention.extend(_classify(baseline, conflict, password, cli=config.keepassxc_cli))
-            _merge_one(found.master, conflict, password, cli=config.keepassxc_cli)
+            attention.extend(_classify(baseline, conflict, password, cli=DEFAULT_CLI))
+            _merge_one(found.master, conflict, password, cli=DEFAULT_CLI)
         except Exception as exc:
             failed.append((conflict, str(exc)))
             continue

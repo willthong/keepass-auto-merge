@@ -55,6 +55,41 @@ def read(path: Path) -> str:
     return password
 
 
+def decrypt(path: Path, name: str = DEFAULT_NAME) -> str:
+    """Decrypt a credential stored by `systemd-creds encrypt`, for use outside a unit."""
+    try:
+        result = subprocess.run(
+            ["systemd-creds", "decrypt", f"--name={name}", str(path), "-"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except FileNotFoundError as exc:
+        raise CredentialError("systemd-creds not found; install systemd") from exc
+    except subprocess.CalledProcessError as exc:
+        detail = (exc.stderr or "").strip() or f"exit {exc.returncode}"
+        raise CredentialError(f"cannot decrypt credential {path}: {detail}") from exc
+    password = result.stdout.rstrip("\n")
+    if not password:
+        raise CredentialError(f"decrypted credential is empty: {path}")
+    return password
+
+
+def load(explicit_path: Path | None = None, name: str = DEFAULT_NAME) -> str:
+    """The master password, wherever it happens to live.
+
+    Under systemd, LoadCredential has already decrypted it into $CREDENTIALS_DIRECTORY. Outside a
+    unit the file on disk is still ciphertext, so it has to be decrypted explicitly; reading it as
+    text would feed the ciphertext to the merge engine and look like a wrong password.
+    """
+    if explicit_path is not None:
+        return read(Path(explicit_path))
+    directory = os.environ.get("CREDENTIALS_DIRECTORY")
+    if directory:
+        return read(Path(directory) / name)
+    return decrypt(DEFAULT_CREDSTORE / name, name)
+
+
 def default_path(name: str = DEFAULT_NAME) -> Path:
     """Where the running service reads the credential from."""
     directory = os.environ.get("CREDENTIALS_DIRECTORY")

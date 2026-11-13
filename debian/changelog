@@ -1,3 +1,14 @@
+keepass-auto-merge (0.3.0) unstable; urgency=low
+
+  * Fix: verify and run decrypt the stored credential when they are not
+    running under systemd. Previously the ciphertext was fed to the merge
+    engine, which looked exactly like a wrong password.
+  * Fix: engine failures now include keepassxc-cli's own diagnosis.
+  * Remove the merge_mode setting: the merge is always keep-newer.
+  * Remove the keepassxc_cli setting: there is no alternative engine.
+
+ -- willthong <willthong@users.noreply.github.com>  Thu, 13 Nov 2026 15:05:00 +0000
+
 keepass-auto-merge (0.2.1) unstable; urgency=low
 
   * Fix: removing or upgrading the package no longer fails or complains when a

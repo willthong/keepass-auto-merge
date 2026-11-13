@@ -25,8 +25,6 @@ def test_minimal_config_uses_documented_defaults(tmp_path: Path) -> None:
     assert cfg.archive_dir == ".merged"
     assert cfg.backup_keep == 10
     assert cfg.timer_interval == "10min"
-    assert cfg.merge_mode == "keep-newer"
-    assert cfg.keepassxc_cli == "keepassxc-cli"
 
 
 def test_every_key_can_be_overridden(tmp_path: Path) -> None:
@@ -43,7 +41,6 @@ on_merged = "delete"
 archive_dir = "done"
 backup_keep = 3
 timer_interval = "30min"
-keepassxc_cli = "/opt/keepassxc/bin/keepassxc-cli"
 """,
         )
     )
@@ -54,7 +51,6 @@ keepassxc_cli = "/opt/keepassxc/bin/keepassxc-cli"
     assert cfg.archive_dir == "done"
     assert cfg.backup_keep == 3
     assert cfg.timer_interval == "30min"
-    assert cfg.keepassxc_cli == "/opt/keepassxc/bin/keepassxc-cli"
 
 
 def test_missing_config_is_an_error(tmp_path: Path) -> None:
@@ -84,11 +80,25 @@ def test_unknown_key_is_an_error(tmp_path: Path) -> None:
         load(write_config(tmp_path, f'watch_directory = "{watch}"\nmaster_pasword = "oops"\n'))
 
 
-def test_synchronize_merge_mode_is_rejected(tmp_path: Path) -> None:
+def test_merge_mode_is_not_a_setting(tmp_path: Path) -> None:
+    """There is only one merge behaviour: keep-newer. Configuring it was a lie."""
     watch = tmp_path / "vaults"
     watch.mkdir()
-    with pytest.raises(ConfigError, match="merge_mode"):
-        load(write_config(tmp_path, f'watch_directory = "{watch}"\nmerge_mode = "synchronize"\n'))
+    with pytest.raises(ConfigError, match="unknown key"):
+        load(write_config(tmp_path, f'watch_directory = "{watch}"\nmerge_mode = "keep-newer"\n'))
+
+
+def test_keepassxc_cli_is_not_a_setting(tmp_path: Path) -> None:
+    """There is no alternative engine to point at."""
+    watch = tmp_path / "vaults"
+    watch.mkdir()
+    with pytest.raises(ConfigError, match="unknown key"):
+        load(
+            write_config(
+                tmp_path,
+                f'watch_directory = "{watch}"\nkeepassxc_cli = "/usr/bin/keepassxc-cli"\n',
+            )
+        )
 
 
 def test_config_has_no_credential_attribute() -> None:

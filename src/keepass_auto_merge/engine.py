@@ -27,7 +27,8 @@ def _run(argv: list[str], password: str, *, capture: bool = True) -> subprocess.
 
 def unlock_check(master: object, password: str, *, cli: str = DEFAULT_CLI) -> None:
     """Prove the credential unlocks the database, without printing decrypted content."""
-    result = _run([cli, "export", "-q", "-f", "xml", str(master)], password)
+    # No -q: KeePassXC suppresses its own diagnosis when quiet, and the diagnosis is the point.
+    result = _run([cli, "export", "-f", "xml", str(master)], password)
     if result.returncode != 0:
         detail = (result.stderr or "").strip().splitlines()
         reason = detail[-1] if detail else f"exit {result.returncode}"
@@ -36,7 +37,7 @@ def unlock_check(master: object, password: str, *, cli: str = DEFAULT_CLI) -> No
 
 def export_xml(path: object, password: str, *, cli: str = DEFAULT_CLI) -> str:
     """Decrypt a database to KeePass XML in memory; never printed, never written."""
-    result = _run([cli, "export", "-q", "-f", "xml", str(path)], password)
+    result = _run([cli, "export", "-f", "xml", str(path)], password)
     if result.returncode != 0:
         detail = (result.stderr or "").strip().splitlines()
         reason = detail[-1] if detail else f"exit {result.returncode}"

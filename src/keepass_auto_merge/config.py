@@ -18,16 +18,13 @@ DEFAULT_VALUES_PLACEHOLDER: dict[str, Any] = {
     "watch_directory": None,
     "master_filename": "keepass.kdbx",
     "conflict_glob": "*sync-conflict*",
-    "merge_mode": "keep-newer",
     "on_merged": "archive",
     "archive_dir": ".merged",
     "backup_keep": 10,
     "timer_interval": "10min",
-    "keepassxc_cli": "keepassxc-cli",
     "credential_name": "keepass-auto-merge.password",
 }
 
-SUPPORTED_MERGE_MODES = ("keep-newer",)
 SUPPORTED_ON_MERGED = ("archive", "delete")
 
 
@@ -70,12 +67,6 @@ SETTINGS: tuple[Setting, ...] = (
         "--conflict-glob",
     ),
     Setting(
-        "merge_mode",
-        "keep-newer",
-        "How entries are reconciled. Only keep-newer is supported: deletions are never applied.",
-        "--merge-mode",
-    ),
-    Setting(
         "on_merged",
         "archive",
         "What happens to a conflict file after merging it: archive or delete.",
@@ -101,12 +92,6 @@ SETTINGS: tuple[Setting, ...] = (
         "--timer-interval",
     ),
     Setting(
-        "keepassxc_cli",
-        "keepassxc-cli",
-        "Path to the keepassxc-cli merge engine.",
-        "--keepassxc-cli",
-    ),
-    Setting(
         "credential_name",
         "keepass-auto-merge.password",
         "Name of the credential in the system credential store (must match provision/units).",
@@ -120,12 +105,10 @@ class Config:
     watch_directory: Path
     master_filename: str = "keepass.kdbx"
     conflict_glob: str = "*sync-conflict*"
-    merge_mode: str = "keep-newer"
     on_merged: str = "archive"
     archive_dir: str = ".merged"
     backup_keep: int = 10
     timer_interval: str = "10min"
-    keepassxc_cli: str = "keepassxc-cli"
     credential_name: str = "keepass-auto-merge.password"
     source: Path | None = field(default=None, compare=False)
 
@@ -165,14 +148,6 @@ def from_mapping(raw: dict[str, Any], source: Path | None = None) -> Config:
         raise NotConfigured(
             "not configured: watch_directory is not an existing directory: "
             f"{watch}. {UNCONFIGURED_HINT}"
-        )
-
-    merge_mode = raw.get("merge_mode", DEFAULTS["merge_mode"])
-    if merge_mode not in SUPPORTED_MERGE_MODES:
-        raise ConfigError(
-            f"merge_mode {merge_mode!r} is not supported; this tool only merges non-destructively "
-            f"(keep-newer), so deletions are never applied. Supported: "
-            f"{', '.join(SUPPORTED_MERGE_MODES)}"
         )
 
     on_merged = raw.get("on_merged", DEFAULTS["on_merged"])

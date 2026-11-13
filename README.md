@@ -64,13 +64,15 @@ effective value.
 | `watch_directory` | `--watch-directory` | *(required)* | Directory holding the master database and the conflict files. Must already exist. |
 | `master_filename` | `--master-filename` | `keepass.kdbx` | The authoritative database that every conflict file is merged into. |
 | `conflict_glob` | `--conflict-glob` | `*sync-conflict*` | Case-insensitive glob for the files to merge. |
-| `merge_mode` | `--merge-mode` | `keep-newer` | Only `keep-newer` is supported: deletions are never applied. |
 | `on_merged` | `--on-merged` | `archive` | What happens to a conflict file after merging: `archive` or `delete`. |
 | `archive_dir` | `--archive-dir` | `.merged` | Subdirectory of the watch directory where merged conflict files are kept. |
 | `backup_keep` | `--backup-keep` | `10` | How many hidden timestamped master backups to keep. `0` disables backups. |
 | `timer_interval` | `--timer-interval` | `10min` | How often the timer re-scans, on top of the path unit's watch. |
-| `keepassxc_cli` | `--keepassxc-cli` | `keepassxc-cli` | Path to the merge engine. |
 | `credential_name` | `--credential-name` | `keepass-auto-merge.password` | Name of the credential in the system credential store. Must match what `provision` wrote. |
+
+Two keys that older versions wrote are gone, because both implied a choice that never existed:
+`merge_mode` (the merge is always keep-newer) and `keepassxc_cli` (there is no alternative engine).
+An old config containing them is reported as having unknown keys; `configure` repairs it.
 
 **Comments in the config file are not preserved.** `configure` regenerates the file from the
 values, so annotations are discarded; the table above and the interactive prompts are the

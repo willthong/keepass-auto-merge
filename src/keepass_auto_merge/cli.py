@@ -173,8 +173,7 @@ def provision_command(args: argparse.Namespace) -> int:
 
 
 def run_command(args: argparse.Namespace, config: Config) -> int:
-    credential_path = args.credential_file or credential.default_path(config.credential_name)
-    password = credential.read(credential_path)
+    password = credential.load(args.credential_file, config.credential_name)
     try:
         report = run_merge(config, password, dry_run=args.dry_run)
     except AlreadyRunning as exc:
@@ -327,10 +326,7 @@ def units_command(args: argparse.Namespace, config: Config) -> int:
 
 
 def verify_command(args: argparse.Namespace) -> int:
-    credential_path = args.credential_file or credential.default_path(
-        _configured_credential_name(args.config)
-    )
-    password = credential.read(credential_path)
+    password = credential.load(args.credential_file, _configured_credential_name(args.config))
     master = args.master
     if master is None:
         config = load(args.config)

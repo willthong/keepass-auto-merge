@@ -296,3 +296,70 @@ def test_run_reads_the_configured_credential_name(tmp_path: Path, monkeypatch, c
     monkeypatch.setenv("CREDENTIALS_DIRECTORY", str(directory))
 
     assert credential.default_path("site.pw") == directory / "site.pw"
+
+
+@pytest.fixture
+def fake_systemd_creds_decrypt(stub_bin: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A stand-in for `systemd-creds decrypt` that prints the plaintext."""
+    script = stub_bin / "systemd-creds"
+    script.write_text(
+        """#!/bin/sh
+case "$1" in
+  decrypt)
+    echo "correct horse battery staple"
+    ;;
+  *)
+    cat > /dev/null
+    ;;
+esac
+""",
+        encoding="utf-8",
+    )
+    script.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{stub_bin}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.delenv("CREDENTIALS_DIRECTORY", raising=False)
+    return script
+
+
+def test_verify_without_systemd_reads_the_decrypted_credential(
+    fake_systemd_creds_decrypt: Path, fake_keepassxc: Path, tmp_path: Path, capsys, monkeypatch
+) -> None:
+    from keepass_auto_merge import credential
+
+    master = tmp_path / "keepass.kdbx"
+    master.write_bytes(b"not really a kdbx")
+    stored = tmp_path / "credstore" / "keepass-auto-merge.password"
+    stored.parent.mkdir()
+    stored.write_text("SYSTEMD-ENCRYPTED-garbage", encoding="utf-8")
+    monkeypatch.setattr(credential, "DEFAULT_CREDSTORE", stored.parent)
+
+    code, out, _ = run(capsys, ["verify", "--master", str(master)])
+
+    assert code == 0
+    assert "unlocks" in out.lower()
+
+
+def test_verify_reports_a_credential_that_cannot_be_decrypted(
+    stub_bin: Path, tmp_path: Path, capsys, monkeypatch
+) -> None:
+    script = stub_bin / "systemd-creds"
+    script.write_text(
+        '#!/bin/sh\necho "Failed to determine local credential host secret" >&2\nexit 1\n',
+        encoding="utf-8",
+    )
+    script.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{stub_bin}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.delenv("CREDENTIALS_DIRECTORY", raising=False)
+    from keepass_auto_merge import credential
+
+    stored = tmp_path / "credstore" / "keepass-auto-merge.password"
+    stored.parent.mkdir()
+    stored.write_text("SYSTEMD-ENCRYPTED-garbage", encoding="utf-8")
+    monkeypatch.setattr(credential, "DEFAULT_CREDSTORE", stored.parent)
+    master = tmp_path / "keepass.kdbx"
+    master.write_bytes(b"x")
+
+    code, _, err = run(capsys, ["verify", "--master", str(master)])
+
+    assert code == 1
+    assert "decrypt" in err.lower()

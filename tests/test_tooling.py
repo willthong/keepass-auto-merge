@@ -105,3 +105,14 @@ def test_readme_install_uses_apt_not_bare_dpkg() -> None:
 
     assert "apt install ./" in readme
     assert "dpkg -i" in readme  # mentioned only to warn about it
+
+
+def test_readme_does_not_document_removed_settings() -> None:
+    from keepass_auto_merge.config import SETTINGS
+
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    documented = {setting.name for setting in SETTINGS}
+
+    for removed in ("merge_mode", "keepassxc_cli"):
+        assert removed not in documented
+        assert f"| `{removed}` |" not in readme
