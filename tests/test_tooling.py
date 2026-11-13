@@ -81,3 +81,19 @@ def test_readme_documents_the_developer_commands() -> None:
 @pytest.mark.parametrize("path", ["pyproject.toml", ".pre-commit-config.yaml"])
 def test_configuration_files_are_committed(path: str) -> None:
     assert (ROOT / path).is_file()
+
+
+def test_readme_documents_every_configuration_key() -> None:
+    from keepass_auto_merge.config import SETTINGS
+
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+    for setting in SETTINGS:
+        assert setting.name in readme, f"{setting.name} is undocumented"
+
+
+def test_readme_says_comments_in_the_config_are_not_preserved() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8").lower()
+
+    assert "comment" in readme
+    assert "configure" in readme

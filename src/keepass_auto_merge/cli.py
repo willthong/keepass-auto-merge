@@ -6,11 +6,15 @@ Exit codes are part of the contract: 0 success, 1 failure, 2 usage error.
 from __future__ import annotations
 
 import argparse
+import os
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
 from . import __version__, credential, units
-from .config import Config, ConfigError, load
+from . import configure as configuration
+from .config import SETTINGS, Config, ConfigError, NotConfigured, load
 from .discovery import DiscoveryError, discover
 from .engine import EngineError, unlock_check
 from .merge import AlreadyRunning
@@ -98,6 +102,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="write the systemd units for this config (site-specific watch paths)",
     )
     units_cmd.add_argument("--output-dir", type=Path, default=Path("/usr/lib/systemd/system"))
+
+    configure_cmd = sub.add_parser(
+        "configure",
+        parents=[common],
+        help="write the configuration file and regenerate the units",
+    )
+    for setting in SETTINGS:
+        if setting.kind is int:
+            configure_cmd.add_argument(
+                setting.flag, type=int, default=None, help=setting.description
+            )
+        else:
+            configure_cmd.add_argument(setting.flag, default=None, help=setting.description)
+    configure_cmd.add_argument(
+        "--units-dir",
+        type=Path,
+        default=Path("/etc/systemd/system"),
+        help="where to write the regenerated units",
+    )
     return parser
 
 
@@ -114,6 +137,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "provision":
             return provision_command(args)
+        if args.command == "configure":
+            return configure_command(args)
         if args.command == "verify":
             return verify_command(args)
 
@@ -124,6 +149,9 @@ def main(argv: list[str] | None = None) -> int:
             return run_command(args, config)
         if args.command == "units":
             return units_command(args, config)
+    except NotConfigured as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_FAILURE
     except (ConfigError, DiscoveryError, credential.CredentialError, EngineError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_FAILURE
@@ -178,6 +206,100 @@ def run_command(args: argparse.Namespace, config: Config) -> int:
     return EXIT_ATTENTION if report.needs_attention else EXIT_OK
 
 
+def configure_command(args: argparse.Namespace) -> int:
+    flags = {setting.name: getattr(args, setting.name.replace("-", "_")) for setting in SETTINGS}
+    given = {name: value for name, value in flags.items() if value is not None}
+
+    if not given:
+        if not _interactive():
+            print(
+                "error: no terminal to prompt on; pass the settings as flags",
+                file=sys.stderr,
+            )
+            for setting in SETTINGS:
+                print(f"  {setting.flag}  {setting.description}", file=sys.stderr)
+            return EXIT_USAGE
+        given = _interactive_answers(args.config)
+        if given is None:
+            return EXIT_FAILURE
+
+    values = configuration.apply(args.config, given)
+    print(f"wrote {args.config}")
+    for setting in SETTINGS:
+        print(f"  {setting.name} = {values.get(setting.name)}")
+    return _regenerate_units(args, values)
+
+
+def _regenerate_units(args: argparse.Namespace, values: dict) -> int:
+    if args.units_dir:
+        args.units_dir.mkdir(parents=True, exist_ok=True)
+        for name, content in units.render(load(args.config)).items():
+            (args.units_dir / name).write_text(content, encoding="utf-8")
+        print(f"wrote units to {args.units_dir}")
+
+    if _systemd_available():
+        for command in (
+            ["systemctl", "daemon-reload"],
+            ["systemctl", "enable", "--now", "keepass-auto-merge.path"],
+            ["systemctl", "enable", "--now", "keepass-auto-merge.timer"],
+        ):
+            subprocess.run(command, check=False)
+        print("reloaded systemd and enabled the path unit and timer")
+        return EXIT_OK
+
+    print("systemd is not running here; apply the units with:")
+    print("  systemctl daemon-reload")
+    print("  systemctl enable --now keepass-auto-merge.path keepass-auto-merge.timer")
+    return EXIT_OK
+
+
+def _interactive() -> bool:
+    return sys.stdin.isatty() and sys.stdout.isatty()
+
+
+def _interactive_answers(config_path: Path) -> dict | None:
+    """Ask the one setting nothing can invent, explain every other, then confirm once."""
+    current = _current_values(config_path)
+    print("Configure keepass-auto-merge. Enter accepts the value in brackets.")
+    answers: dict = {}
+
+    required = SETTINGS[0]
+    print(f"\n{required.name}: {required.description}")
+    answer = input(f"  {required.flag} [{current.get(required.name) or ''}]: ").strip()
+    if answer:
+        answers[required.name] = answer
+
+    print("\nEvery other setting (defaults shown; pass the flag to change one):")
+    for setting in SETTINGS[1:]:
+        value = current.get(setting.name)
+        print(f"  {setting.flag} [{value}]")
+        print(f"      {setting.description}")
+    answers = {**current, **answers}
+    answers.pop("watch_directory", None) if not answers.get("watch_directory") else None
+
+    print("\nResulting configuration:")
+    for setting in SETTINGS:
+        print(f"  {setting.name} = {answers.get(setting.name)}")
+    if input("Write this configuration? [Y/n]: ").strip().lower() in {"n", "no"}:
+        print("aborted: nothing written")
+        return None
+    return answers
+
+
+def _current_values(config_path: Path) -> dict:
+    try:
+        loaded = load(config_path)
+    except ConfigError:
+        from .config import DEFAULTS
+
+        return dict(DEFAULTS)
+    return {setting.name: getattr(loaded, setting.name) for setting in SETTINGS}
+
+
+def _systemd_available() -> bool:
+    return os.geteuid() == 0 and Path("/run/systemd/system").is_dir() and shutil.which("systemctl")
+
+
 def _configured_credential_name(config_path: Path) -> str:
     """The credential name from the config, falling back to the default when absent."""
     try:
@@ -212,11 +334,11 @@ def verify_command(args: argparse.Namespace) -> int:
 
 
 def check(config: Config) -> int:
+    print(f"config: {config.source}")
+    for setting in SETTINGS:
+        print(f"{setting.name}: {getattr(config, setting.name)}")
     found = discover(config)
     print(f"master:  {found.master}")
-    print(f"watch:   {config.watch_directory}")
-    print(f"pattern: {config.conflict_glob}")
-    print(f"on merged: {config.on_merged} -> {config.archive_path}")
     if not found.has_work:
         print("nothing to do: no conflict files found")
         return EXIT_OK

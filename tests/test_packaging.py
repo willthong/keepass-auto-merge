@@ -152,3 +152,49 @@ def test_shipped_service_loads_the_credential_provision_writes(tmp_path: Path) -
 
     assert 'credential_name = "keepass-auto-merge.password"' in config
     assert "LoadCredential=keepass-auto-merge.password" in service
+
+
+@needs_dpkg
+def test_shipped_conffile_is_defaults_only_without_comments(tmp_path: Path) -> None:
+    import build_deb
+
+    deb = build_deb.build(version="1.2.3", dest=tmp_path)
+    unpacked = tmp_path / "unpacked"
+    subprocess.run(["dpkg-deb", "-x", str(deb), str(unpacked)], check=True)
+
+    config = (unpacked / "etc/keepass-auto-merge/config.toml").read_text(encoding="utf-8")
+
+    assert "#" not in config
+    assert "watch_directory" not in config
+    assert "master_filename" in config
+    assert "credential_name" in config
+
+
+@needs_dpkg
+def test_shipped_conffile_is_readable_by_the_service_user(tmp_path: Path) -> None:
+    import build_deb
+
+    deb = build_deb.build(version="1.2.3", dest=tmp_path)
+    listing = subprocess.run(
+        ["dpkg-deb", "-c", str(deb)], capture_output=True, text=True, check=True
+    ).stdout
+    line = next(
+        entry
+        for entry in listing.splitlines()
+        if entry.endswith("etc/keepass-auto-merge/config.toml")
+    )
+
+    assert line.startswith("-rw-r--r--")
+
+
+@needs_dpkg
+def test_postinst_tells_the_user_to_run_configure(tmp_path: Path) -> None:
+    import build_deb
+
+    deb = build_deb.build(version="1.2.3", dest=tmp_path)
+    postinst = subprocess.run(
+        ["dpkg-deb", "-I", str(deb), "postinst"], capture_output=True, text=True, check=True
+    ).stdout
+
+    assert "keepass-auto-merge configure" in postinst
+    assert "keepass-auto-merge provision" in postinst

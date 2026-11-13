@@ -17,6 +17,12 @@ import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "src"))
+
+from tomli_w import dumps  # noqa: E402
+
+from keepass_auto_merge import config  # noqa: E402
+
 PACKAGE = "keepass-auto-merge"
 SERVICE_USER = "_keepass-merge"
 CONFIG_DIR = "etc/keepass-auto-merge"
@@ -60,17 +66,16 @@ cat <<'MESSAGE'
 
 keepass-auto-merge is installed but not yet able to merge anything.
 
-  1. Put the master database and the conflict files in the watch directory
-     configured in /etc/keepass-auto-merge/config.toml, and grant the
-     {user} user read/write access to it.
+  1. Point the tool at the directory that holds the master database and the
+     conflict files, and generate the units for it:
+         sudo keepass-auto-merge configure --watch-directory /srv/vaults
+     The {user} user needs read/write access to that directory.
   2. Store the master password:
          sudo keepass-auto-merge provision
   3. Prove it works:
          sudo keepass-auto-merge verify
-  4. Generate the path unit for your watch directory and reload:
-         sudo keepass-auto-merge units --output-dir /etc/systemd/system
-         sudo systemctl daemon-reload
-         sudo systemctl enable --now keepass-auto-merge.path
+  4. Check what the service will do:
+         keepass-auto-merge check
 
 MESSAGE
 """
@@ -96,35 +101,17 @@ from keepass_auto_merge.cli import main
 sys.exit(main())
 """
 
-CONFIG_TEMPLATE = """\
-# keepass-auto-merge configuration. The master password is NOT here: it lives in the
-# system credential store, written by `keepass-auto-merge provision` (see docs/adr/0002).
 
-# Directory holding the master database and the conflict files.
-watch_directory = "/srv/vaults"
+def config_template() -> str:
+    """The packaged conffile: defaults only, no comments, no watch_directory (ADR-0004).
 
-# The single authoritative database that everything is merged into.
-master_filename = "keepass.kdbx"
+    A fresh install is explicitly unconfigured rather than pointing at a directory that does not
+    exist; the README documents every key, and `configure` writes the real file.
+    """
+    return dumps(config.DEFAULT_VALUES)
 
-# Files matching this glob (case-insensitive) are treated as conflict files.
-conflict_glob = "*sync-conflict*"
 
-# What happens to a conflict file after it has been merged: "archive" or "delete".
-on_merged = "archive"
-archive_dir = ".merged"
-
-# How many hidden timestamped backups of the master to keep (0 disables backups).
-backup_keep = 10
-
-# How often the timer re-scans, in addition to the path unit.
-timer_interval = "10min"
-
-# Name of the credential in the system credential store. `provision` defaults to this.
-credential_name = "keepass-auto-merge.password"
-
-# Path to the merge engine.
-keepassxc_cli = "keepassxc-cli"
-"""
+CONFIG_TEMPLATE = config_template()
 
 
 def project_version() -> str:
@@ -163,7 +150,7 @@ def _stage(stage: Path, version: str) -> None:
     for source in sorted((ROOT / "src/keepass_auto_merge").glob("*.py")):
         shutil.copy2(source, _mkdir(package_dir) / source.name)
 
-    _write(stage / CONFIG_DIR / "config.toml", CONFIG_TEMPLATE, mode=0o640)
+    _write(stage / CONFIG_DIR / "config.toml", CONFIG_TEMPLATE, mode=0o644)
 
     sys.path.insert(0, str(ROOT / "src"))
     from keepass_auto_merge.config import Config

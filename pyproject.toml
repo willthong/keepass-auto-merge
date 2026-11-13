@@ -7,7 +7,9 @@ authors = [
     { name = "willthong", email = "willthong@users.noreply.github.com" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "tomli-w>=1.2.0",
+]
 
 [project.scripts]
 keepass-auto-merge = "keepass_auto_merge.cli:entrypoint"
