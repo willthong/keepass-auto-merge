@@ -131,3 +131,24 @@ def _credential_file(tmp_path: Path) -> Path:
     path = tmp_path / "cred"
     path.write_text(PASSWORD, encoding="utf-8")
     return path
+
+
+def test_units_command_writes_every_unit(tmp_path: Path, capsys) -> None:
+    watch = tmp_path / "vaults"
+    watch.mkdir()
+    config_file = tmp_path / "config.toml"
+    config_file.write_text(f'watch_directory = "{watch}"\n', encoding="utf-8")
+    output = tmp_path / "units"
+
+    code = cli.main(["units", "--config", str(config_file), "--output-dir", str(output)])
+
+    assert code == 0
+    written = {path.name for path in output.iterdir()}
+    assert written == {
+        "keepass-auto-merge.service",
+        "keepass-auto-merge.path",
+        "keepass-auto-merge.timer",
+    }
+    path_unit = (output / "keepass-auto-merge.path").read_text(encoding="utf-8")
+    assert str(watch) in path_unit
+    assert "daemon-reload" in capsys.readouterr().out

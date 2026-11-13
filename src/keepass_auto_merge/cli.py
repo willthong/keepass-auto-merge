@@ -9,7 +9,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import __version__, credential
+from . import __version__, credential, units
 from .config import Config, ConfigError, load
 from .discovery import DiscoveryError, discover
 from .engine import EngineError, unlock_check
@@ -82,6 +82,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     verify_cmd.add_argument("--credential-file", type=Path, default=None)
     verify_cmd.add_argument("--master", type=Path, default=None)
+
+    units_cmd = sub.add_parser(
+        "units",
+        parents=[common],
+        help="write the systemd units for this config (site-specific watch paths)",
+    )
+    units_cmd.add_argument("--output-dir", type=Path, default=Path("/usr/lib/systemd/system"))
     return parser
 
 
@@ -106,6 +113,8 @@ def main(argv: list[str] | None = None) -> int:
             return check(config)
         if args.command == "run":
             return run_command(args, config)
+        if args.command == "units":
+            return units_command(args, config)
     except (ConfigError, DiscoveryError, credential.CredentialError, EngineError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_FAILURE
@@ -155,6 +164,17 @@ def run_command(args: argparse.Namespace, config: Config) -> int:
     for line in report.attention:
         print(line, file=sys.stderr)
     return EXIT_ATTENTION if report.needs_attention else EXIT_OK
+
+
+def units_command(args: argparse.Namespace, config: Config) -> int:
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    for name, content in units.render(config).items():
+        target = args.output_dir / name
+        target.write_text(content, encoding="utf-8")
+        print(f"wrote {target}")
+    print("run: sudo systemctl daemon-reload")
+    print("run: sudo systemctl enable --now keepass-auto-merge.path keepass-auto-merge.timer")
+    return EXIT_OK
 
 
 def verify_command(args: argparse.Namespace) -> int:

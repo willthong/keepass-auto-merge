@@ -1,0 +1,15 @@
+#!/usr/bin/make -f
+# A plain rules file: packaging/build_deb.py stages the tree and calls dpkg-deb, so the package
+# builds identically on a developer machine and in CI, without debhelper.
+
+PYTHON ?= python3
+
+.PHONY: build binary clean
+build:
+	$(PYTHON) packaging/build_deb.py --dest /tmp/keepass-auto-merge-deb
+
+binary: build
+	cp /tmp/keepass-auto-merge-deb/*.deb ..
+
+clean:
+	rm -rf /tmp/keepass-auto-merge-deb

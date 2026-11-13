@@ -1,0 +1,17 @@
+Source: keepass-auto-merge
+Section: admin
+Priority: optional
+Maintainer: willthong <willthong@users.noreply.github.com>
+Build-Depends: debhelper-compat (= 13), python3
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
+
+Package: keepass-auto-merge
+Architecture: all
+Depends: ${misc:Depends}, python3 (>= 3.11), keepassxc (>= 2.7), systemd
+Description: merge KeePass sync-conflict databases into one master KDBX
+ Folds KeePass sync-conflict copies back into a single master database,
+ non-destructively, on a systemd path unit and timer.
+ .
+ The merge uses keepassxc-cli, so history is preserved and deletions are never
+ applied. The master is backed up before every run and replaced atomically.
