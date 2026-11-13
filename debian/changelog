@@ -1,3 +1,14 @@
+keepass-auto-merge (0.2.0) unstable; urgency=low
+
+  * configure: write the configuration file from flags or interactive prompts,
+    regenerate the units for the watch directory, and apply them.
+  * Every verb refuses an unconfigured install and says what to run.
+  * The packaged conffile is defaults-only, comment-free, and readable by the
+    service user; comments in the config are no longer preserved.
+  * Fix: the package now depends on python3-tomli-w.
+
+ -- willthong <willthong@users.noreply.github.com>  Thu, 13 Nov 2026 12:15:00 +0000
+
 keepass-auto-merge (0.1.0) unstable; urgency=low
 
   * Initial release.

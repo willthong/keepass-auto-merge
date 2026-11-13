@@ -75,3 +75,19 @@ def test_the_wheel_builds_with_the_console_script(tmp_path: Path) -> None:
         assert "keepass_auto_merge/cli.py" in names
         entry_points = next(n for n in names if n.endswith("entry_points.txt"))
         assert "keepass-auto-merge" in archive.read(entry_points).decode()
+
+
+def test_reported_version_matches_the_project_version() -> None:
+    """A tag that disagrees with `--version` makes the release check fail after publishing."""
+    from keepass_auto_merge import __version__
+
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+
+    assert __version__ == project["version"]
+
+
+def test_changelog_documents_the_project_version() -> None:
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    changelog = (ROOT / "debian/changelog").read_text(encoding="utf-8")
+
+    assert changelog.startswith(f"keepass-auto-merge ({project['version']})")
