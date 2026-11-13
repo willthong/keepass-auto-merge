@@ -49,6 +49,7 @@ def test_deb_depends_on_keepassxc(tmp_path: Path) -> None:
 
     assert "keepassxc" in fields
     assert "python3" in fields
+    assert "python3-tomli-w" in fields
 
 
 @needs_dpkg

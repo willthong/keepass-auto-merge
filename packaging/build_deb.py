@@ -34,7 +34,7 @@ Version: {version}
 Section: admin
 Priority: optional
 Architecture: all
-Depends: python3 (>= 3.11), keepassxc (>= 2.7), systemd
+Depends: python3 (>= 3.11), python3-tomli-w, keepassxc (>= 2.7), systemd
 Maintainer: {maintainer}
 Description: merge KeePass sync-conflict databases into one master KDBX
  Folds KeePass sync-conflict copies back into a single master database,

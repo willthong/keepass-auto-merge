@@ -8,7 +8,7 @@ Rules-Requires-Root: no
 
 Package: keepass-auto-merge
 Architecture: all
-Depends: ${misc:Depends}, python3 (>= 3.11), keepassxc (>= 2.7), systemd
+Depends: ${misc:Depends}, python3 (>= 3.11), python3-tomli-w, keepassxc (>= 2.7), systemd
 Description: merge KeePass sync-conflict databases into one master KDBX
  Folds KeePass sync-conflict copies back into a single master database,
  non-destructively, on a systemd path unit and timer.
