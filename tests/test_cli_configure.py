@@ -108,7 +108,14 @@ def test_interactive_configure_explains_every_setting(
 
     monkeypatch.setattr("builtins.input", fake_input)
 
-    code, out, _ = run(capsys, "configure", "--config", str(config_file(tmp_path)))
+    code, out, _ = run(
+        capsys,
+        "configure",
+        "--config",
+        str(config_file(tmp_path)),
+        "--units-dir",
+        str(tmp_path / "units"),
+    )
 
     assert code == 0
     for setting in config_module.SETTINGS:
@@ -130,7 +137,14 @@ def test_interactive_configure_can_be_declined(
 
     monkeypatch.setattr("builtins.input", fake_input)
 
-    code, out, _ = run(capsys, "configure", "--config", str(config_file(tmp_path)))
+    code, out, _ = run(
+        capsys,
+        "configure",
+        "--config",
+        str(config_file(tmp_path)),
+        "--units-dir",
+        str(tmp_path / "units"),
+    )
 
     assert code == 1
     assert "aborted" in out.lower()
@@ -159,7 +173,9 @@ def test_interactive_configure_prefills_existing_values(
 
     monkeypatch.setattr(cli, "_interactive", lambda: True)
     monkeypatch.setattr(cli, "_interactive_answers", lambda *_: {"watch_directory": str(watch)})
-    code, out, _ = run(capsys, "configure", "--config", str(path))
+    code, out, _ = run(
+        capsys, "configure", "--config", str(path), "--units-dir", str(tmp_path / "units")
+    )
 
     assert code == 0
     assert "2" in out
