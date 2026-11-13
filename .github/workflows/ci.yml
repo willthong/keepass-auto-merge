@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: hooks and tests
+    runs-on: ubuntu-latest
+    env:
+      UV_FROZEN: "1"
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Install KeePassXC (the merge engine)
+        run: sudo apt-get update && sudo apt-get install -y keepassxc
+
+      - name: Install dependencies
+        run: uv sync --frozen --all-extras
+
+      - name: Run pre-commit hooks
+        run: uv run pre-commit run --all-files --show-diff-on-failure
+
+      - name: Run the test suite
+        run: uv run pytest -ra
