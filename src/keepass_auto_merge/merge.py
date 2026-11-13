@@ -17,7 +17,8 @@ from pathlib import Path
 
 from .config import Config
 from .discovery import discover
-from .engine import merge_into
+from .engine import export_xml, merge_into
+from .fastforward import classify, parse_export
 
 BACKUP_SUFFIX = ".bak"
 
@@ -31,10 +32,15 @@ class RunReport:
     deleted: list[Path] = field(default_factory=list)
     backup: Path | None = None
     dry_run: bool = False
+    attention: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
         return not self.failed
+
+    @property
+    def needs_attention(self) -> bool:
+        return bool(self.attention)
 
 
 def run(config: Config, password: str, *, dry_run: bool = False) -> RunReport:
@@ -54,8 +60,10 @@ def run(config: Config, password: str, *, dry_run: bool = False) -> RunReport:
     archived: list[Path] = []
     deleted: list[Path] = []
 
+    attention: list[str] = []
     for conflict in planned:
         try:
+            attention.extend(_classify(found.master, conflict, password, cli=config.keepassxc_cli))
             _merge_one(found.master, conflict, password, cli=config.keepassxc_cli)
         except Exception as exc:
             failed.append((conflict, str(exc)))
@@ -79,7 +87,19 @@ def run(config: Config, password: str, *, dry_run: bool = False) -> RunReport:
         archived=archived,
         deleted=deleted,
         backup=backup,
+        attention=attention,
     )
+
+
+def _classify(master: Path, conflict: Path, password: str, *, cli: str) -> list[str]:
+    """Read-only: report anything about this merge that is not a clean fast-forward."""
+    result = classify(
+        parse_export(export_xml(master, password, cli=cli)),
+        parse_export(export_xml(conflict, password, cli=cli)),
+    )
+    if result.clean:
+        return []
+    return result.report().splitlines()
 
 
 def _merge_one(master: Path, conflict: Path, password: str, *, cli: str) -> None:

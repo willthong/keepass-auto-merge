@@ -34,6 +34,16 @@ def unlock_check(master: object, password: str, *, cli: str = DEFAULT_CLI) -> No
         raise EngineError(f"credential does not unlock {master}: {reason}")
 
 
+def export_xml(path: object, password: str, *, cli: str = DEFAULT_CLI) -> str:
+    """Decrypt a database to KeePass XML in memory; never printed, never written."""
+    result = _run([cli, "export", "-q", "-f", "xml", str(path)], password)
+    if result.returncode != 0:
+        detail = (result.stderr or "").strip().splitlines()
+        reason = detail[-1] if detail else f"exit {result.returncode}"
+        raise EngineError(f"cannot read {Path(path).name}: {reason}")
+    return result.stdout
+
+
 def merge_into(target: object, conflict: object, password: str, *, cli: str = DEFAULT_CLI) -> str:
     """Merge `conflict` into `target` in place, with one password for both databases."""
     result = _run(

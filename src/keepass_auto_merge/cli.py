@@ -20,6 +20,7 @@ DEFAULT_CONFIG = Path("/etc/keepass-auto-merge/config.toml")
 EXIT_OK = 0
 EXIT_FAILURE = 1
 EXIT_USAGE = 2
+EXIT_ATTENTION = 2
 
 
 VERSION_STRING = f"keepass-auto-merge {__version__}"
@@ -144,7 +145,11 @@ def run_command(args: argparse.Namespace, config: Config) -> int:
         print(f"deleted: {path}")
     for path, reason in report.failed:
         print(f"error: {path.name}: {reason}", file=sys.stderr)
-    return EXIT_OK if report.ok else EXIT_FAILURE
+    if not report.ok:
+        return EXIT_FAILURE
+    for line in report.attention:
+        print(line, file=sys.stderr)
+    return EXIT_ATTENTION if report.needs_attention else EXIT_OK
 
 
 def verify_command(args: argparse.Namespace) -> int:

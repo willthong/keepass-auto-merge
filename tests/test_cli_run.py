@@ -110,3 +110,60 @@ def test_run_without_credential_fails_clearly(watch: Path, tmp_path: Path, capsy
 
     assert code == 1
     assert "credential" in err.lower()
+
+
+def test_deletion_in_conflict_file_is_logged_and_exits_two(
+    watch: Path, credential: Path, capsys
+) -> None:
+    import subprocess
+
+    master = create_db(watch / "keepass.kdbx")
+    add_entry(master, "kept")
+    add_entry(master, "removed")
+    import shutil
+
+    conflict = Path(shutil.copy2(master, watch / "keepass.sync-conflict-a.kdbx"))
+    subprocess.run(
+        ["keepassxc-cli", "rm", "-q", str(conflict), "removed"],
+        input=f"{PASSWORD}\n",
+        text=True,
+        check=True,
+        capture_output=True,
+    )
+
+    code, _, err = run(
+        capsys,
+        "run",
+        "--config",
+        str(watch.parent / "config.toml"),
+        "--credential-file",
+        str(credential),
+    )
+
+    assert code == 2
+    assert "ERROR" in err
+    assert "removed" in err
+    assert "not a clean fast-forward" in err
+    # non-destructive: the entry is still in the master
+    assert "removed" in list_entries(master)
+
+
+def test_clean_fast_forward_exits_zero(watch: Path, credential: Path, capsys) -> None:
+    master = create_db(watch / "keepass.kdbx")
+    add_entry(master, "base")
+    import shutil
+
+    conflict = Path(shutil.copy2(master, watch / "keepass.sync-conflict-a.kdbx"))
+    add_entry(conflict, "added")
+
+    code, _, err = run(
+        capsys,
+        "run",
+        "--config",
+        str(watch.parent / "config.toml"),
+        "--credential-file",
+        str(credential),
+    )
+
+    assert code == 0
+    assert "ERROR" not in err
