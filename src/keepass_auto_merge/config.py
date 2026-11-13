@@ -20,6 +20,7 @@ DEFAULTS: dict[str, Any] = {
     "backup_keep": 10,
     "timer_interval": "10min",
     "keepassxc_cli": "keepassxc-cli",
+    "credential_name": "keepass-auto-merge.password",
 }
 
 SUPPORTED_MERGE_MODES = ("keep-newer",)
@@ -41,6 +42,7 @@ class Config:
     backup_keep: int = 10
     timer_interval: str = "10min"
     keepassxc_cli: str = "keepassxc-cli"
+    credential_name: str = "keepass-auto-merge.password"
     source: Path | None = field(default=None, compare=False)
 
     @property

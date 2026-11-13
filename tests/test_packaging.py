@@ -130,3 +130,25 @@ def test_control_declares_the_keepassxc_dependency() -> None:
     assert "Package: keepass-auto-merge" in control
     assert "keepassxc" in control
     assert "Architecture: all" in control
+
+
+def test_packaged_config_documents_the_credential_name() -> None:
+    import build_deb
+
+    assert "credential_name" in build_deb.CONFIG_TEMPLATE
+
+
+@needs_dpkg
+def test_shipped_service_loads_the_credential_provision_writes(tmp_path: Path) -> None:
+    import build_deb
+
+    deb = build_deb.build(version="1.2.3", dest=tmp_path)
+    unpacked = tmp_path / "unpacked"
+    subprocess.run(["dpkg-deb", "-x", str(deb), str(unpacked)], check=True)
+    service = (unpacked / "usr/lib/systemd/system/keepass-auto-merge.service").read_text(
+        encoding="utf-8"
+    )
+    config = (unpacked / "etc/keepass-auto-merge/config.toml").read_text(encoding="utf-8")
+
+    assert 'credential_name = "keepass-auto-merge.password"' in config
+    assert "LoadCredential=keepass-auto-merge.password" in service

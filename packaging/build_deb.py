@@ -119,6 +119,9 @@ backup_keep = 10
 # How often the timer re-scans, in addition to the path unit.
 timer_interval = "10min"
 
+# Name of the credential in the system credential store. `provision` defaults to this.
+credential_name = "keepass-auto-merge.password"
+
 # Path to the merge engine.
 keepassxc_cli = "keepassxc-cli"
 """

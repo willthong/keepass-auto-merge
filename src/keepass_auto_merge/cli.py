@@ -72,8 +72,17 @@ def build_parser() -> argparse.ArgumentParser:
         parents=[common],
         help="encrypt the master password into the system credential store (reads stdin)",
     )
-    provision_cmd.add_argument("--dest", type=Path, default=credential.default_path())
-    provision_cmd.add_argument("--name", default=credential.DEFAULT_NAME)
+    provision_cmd.add_argument(
+        "--dest",
+        type=Path,
+        default=None,
+        help="credential file to write (default: /etc/credstore.encrypted/<name>)",
+    )
+    provision_cmd.add_argument(
+        "--name",
+        default=None,
+        help="credential name (default: credential_name from the config file)",
+    )
 
     verify_cmd = sub.add_parser(
         "verify",
@@ -124,16 +133,19 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def provision_command(args: argparse.Namespace) -> int:
+    # The config decides the credential name so it cannot drift from LoadCredential= in the unit.
+    name = args.name or _configured_credential_name(args.config)
+    dest = args.dest or credential.provision_path(name)
     password = credential.prompt_password()
-    credential.provision(password, args.dest, name=args.name)
-    print(f"credential written to {args.dest}")
-    print(f"name: {args.name}")
+    credential.provision(password, dest, name=name)
+    print(f"credential written to {dest}")
+    print(f"name: {name}")
     print("next: enable and start the keepass-auto-merge path unit and timer")
     return EXIT_OK
 
 
 def run_command(args: argparse.Namespace, config: Config) -> int:
-    credential_path = args.credential_file or credential.default_path()
+    credential_path = args.credential_file or credential.default_path(config.credential_name)
     password = credential.read(credential_path)
     try:
         report = run_merge(config, password, dry_run=args.dry_run)
@@ -166,6 +178,14 @@ def run_command(args: argparse.Namespace, config: Config) -> int:
     return EXIT_ATTENTION if report.needs_attention else EXIT_OK
 
 
+def _configured_credential_name(config_path: Path) -> str:
+    """The credential name from the config, falling back to the default when absent."""
+    try:
+        return load(config_path).credential_name
+    except ConfigError:
+        return credential.DEFAULT_NAME
+
+
 def units_command(args: argparse.Namespace, config: Config) -> int:
     args.output_dir.mkdir(parents=True, exist_ok=True)
     for name, content in units.render(config).items():
@@ -178,7 +198,9 @@ def units_command(args: argparse.Namespace, config: Config) -> int:
 
 
 def verify_command(args: argparse.Namespace) -> int:
-    credential_path = args.credential_file or credential.default_path()
+    credential_path = args.credential_file or credential.default_path(
+        _configured_credential_name(args.config)
+    )
     password = credential.read(credential_path)
     master = args.master
     if master is None:

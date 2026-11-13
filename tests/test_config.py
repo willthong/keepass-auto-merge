@@ -101,3 +101,23 @@ def test_master_path_is_inside_watch_directory(tmp_path: Path) -> None:
     watch.mkdir()
     cfg = load(write_config(tmp_path, f'watch_directory = "{watch}"\n'))
     assert cfg.master_path == watch / "keepass.kdbx"
+
+
+def test_credential_name_has_a_default(tmp_path: Path) -> None:
+    watch = tmp_path / "vaults"
+    watch.mkdir()
+
+    cfg = load(write_config(tmp_path, f'watch_directory = "{watch}"\n'))
+
+    assert cfg.credential_name == "keepass-auto-merge.password"
+
+
+def test_credential_name_can_be_overridden(tmp_path: Path) -> None:
+    watch = tmp_path / "vaults"
+    watch.mkdir()
+
+    cfg = load(
+        write_config(tmp_path, f'watch_directory = "{watch}"\ncredential_name = "kdbx.pw"\n')
+    )
+
+    assert cfg.credential_name == "kdbx.pw"

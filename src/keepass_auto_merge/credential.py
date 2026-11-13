@@ -56,10 +56,19 @@ def read(path: Path) -> str:
 
 
 def default_path(name: str = DEFAULT_NAME) -> Path:
-    """Where systemd makes the credential available inside the service."""
+    """Where the running service reads the credential from."""
     directory = os.environ.get("CREDENTIALS_DIRECTORY")
     if directory:
         return Path(directory) / name
+    return DEFAULT_CREDSTORE / name
+
+
+def provision_path(name: str = DEFAULT_NAME) -> Path:
+    """Where `provision` writes the credential.
+
+    Deliberately ignores $CREDENTIALS_DIRECTORY: inside a unit that directory is a read-only
+    tmpfs that only systemd populates, so writing there would fail.
+    """
     return DEFAULT_CREDSTORE / name
 
 

@@ -254,3 +254,45 @@ def test_verify_with_the_real_engine_rejects_a_wrong_password(tmp_path: Path, ca
 
     assert code == 1
     assert "does not unlock" in err.lower()
+
+
+def test_provision_ignores_credentials_directory_for_its_destination(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Provisioning must never target systemd's read-only $CREDENTIALS_DIRECTORY."""
+    from keepass_auto_merge import credential
+
+    monkeypatch.setenv("CREDENTIALS_DIRECTORY", str(tmp_path / "readonly"))
+
+    assert credential.provision_path() == Path(
+        "/etc/credstore.encrypted/keepass-auto-merge.password"
+    )
+
+
+def test_provision_defaults_to_the_name_the_unit_loads(
+    fake_systemd_creds: Path, tmp_path: Path, capsys, monkeypatch
+) -> None:
+    watch = tmp_path / "vaults"
+    watch.mkdir()
+    config_file = tmp_path / "config.toml"
+    config_file.write_text(
+        f'watch_directory = "{watch}"\ncredential_name = "from-config.pw"\n', encoding="utf-8"
+    )
+    monkeypatch.setattr("sys.stdin", _stdin(f"{PASSWORD}\n"))
+    dest = tmp_path / "cred"
+
+    code, out, _ = run(capsys, ["provision", "--config", str(config_file), "--dest", str(dest)])
+
+    assert code == 0
+    assert "from-config.pw" in out
+
+
+def test_run_reads_the_configured_credential_name(tmp_path: Path, monkeypatch, capsys) -> None:
+    from keepass_auto_merge import credential
+
+    directory = tmp_path / "creds"
+    directory.mkdir()
+    (directory / "site.pw").write_text(PASSWORD, encoding="utf-8")
+    monkeypatch.setenv("CREDENTIALS_DIRECTORY", str(directory))
+
+    assert credential.default_path("site.pw") == directory / "site.pw"

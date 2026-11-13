@@ -156,3 +156,11 @@ def test_units_command_writes_every_unit(tmp_path: Path, capsys) -> None:
     path_unit = (output / "keepass-auto-merge.path").read_text(encoding="utf-8")
     assert str(watch) in path_unit
     assert "daemon-reload" in capsys.readouterr().out
+
+
+def test_service_loads_the_configured_credential_name(tmp_path: Path) -> None:
+    service = units.render(config(tmp_path, credential_name="kdbx.pw"))[
+        "keepass-auto-merge.service"
+    ]
+
+    assert "LoadCredential=kdbx.pw" in service

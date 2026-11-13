@@ -53,6 +53,7 @@ on_merged       = "archive"   # or "delete"
 archive_dir     = ".merged"
 backup_keep     = 10          # 0 disables backups
 timer_interval  = "10min"
+credential_name = "keepass-auto-merge.password"  # must match provision --name
 ```
 
 ## Develop
