@@ -116,3 +116,11 @@ def test_readme_does_not_document_removed_settings() -> None:
     for removed in ("merge_mode", "keepassxc_cli"):
         assert removed not in documented
         assert f"| `{removed}` |" not in readme
+
+
+def test_readme_runs_verify_with_sudo() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+    assert "sudo keepass-auto-merge verify" in readme
+    # `verify` decrypts with the root-only host key, so it must not be shown bare.
+    assert "keepass-auto-merge verify\n" not in readme.replace("sudo keepass-auto-merge verify", "")

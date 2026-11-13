@@ -38,7 +38,7 @@ Download the `.deb` from [Releases](https://github.com/willthong/keepass-auto-me
 sudo apt install ./keepass-auto-merge_<version>_all.deb
 sudo keepass-auto-merge configure --watch-directory /srv/vaults   # writes config + units
 sudo keepass-auto-merge provision                                 # master password on stdin
-keepass-auto-merge verify
+sudo keepass-auto-merge verify                                    # root: decryption needs the host key
 keepass-auto-merge check
 ```
 

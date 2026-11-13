@@ -1,6 +1,6 @@
 [project]
 name = "keepass-auto-merge"
-version = "0.3.0"
+version = "0.3.1"
 description = "Merge KeePass sync-conflict databases into one master KDBX, non-destructively"
 readme = "README.md"
 authors = [

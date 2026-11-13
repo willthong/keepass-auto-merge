@@ -68,7 +68,13 @@ def decrypt(path: Path, name: str = DEFAULT_NAME) -> str:
         raise CredentialError("systemd-creds not found; install systemd") from exc
     except subprocess.CalledProcessError as exc:
         detail = (exc.stderr or "").strip() or f"exit {exc.returncode}"
-        raise CredentialError(f"cannot decrypt credential {path}: {detail}") from exc
+        hint = ""
+        lowered = detail.lower()
+        if "permission denied" in lowered or "operation not permitted" in lowered:
+            hint = "decryption needs root (the host key is root-only); run: sudo keepass-auto-merge"
+        raise CredentialError(
+            f"cannot decrypt credential {path}: {detail}. {hint}".rstrip()
+        ) from exc
     password = result.stdout.rstrip("\n")
     if not password:
         raise CredentialError(f"decrypted credential is empty: {path}")

@@ -363,3 +363,60 @@ def test_verify_reports_a_credential_that_cannot_be_decrypted(
 
     assert code == 1
     assert "decrypt" in err.lower()
+
+
+def test_decrypt_permission_denied_says_to_run_as_root(
+    stub_bin: Path, tmp_path: Path, monkeypatch
+) -> None:
+    """The host key is root-only; the error must tell the operator to use sudo."""
+    from keepass_auto_merge import credential
+
+    script = stub_bin / "systemd-creds"
+    script.write_text(
+        (
+            "#!/bin/sh\n"
+            'echo "Failed to determine local credential key: Permission denied" >&2\n'
+            "exit 1\n"
+        ),
+        encoding="utf-8",
+    )
+    script.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{stub_bin}{os.pathsep}{os.environ['PATH']}")
+    stored = tmp_path / "keepass-auto-merge.password"
+    stored.write_text("SYSTEMD-ENCRYPTED-garbage", encoding="utf-8")
+
+    with pytest.raises(credential.CredentialError) as raised:
+        credential.decrypt(stored)
+
+    message = str(raised.value)
+    assert "sudo keepass-auto-merge" in message
+
+
+def test_verify_tells_the_operator_when_sudo_is_missing(
+    stub_bin: Path, tmp_path: Path, capsys, monkeypatch
+) -> None:
+    script = stub_bin / "systemd-creds"
+    script.write_text(
+        (
+            "#!/bin/sh\n"
+            'echo "Failed to determine local credential key: Permission denied" >&2\n'
+            "exit 1\n"
+        ),
+        encoding="utf-8",
+    )
+    script.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{stub_bin}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.delenv("CREDENTIALS_DIRECTORY", raising=False)
+    from keepass_auto_merge import credential
+
+    stored = tmp_path / "credstore" / "keepass-auto-merge.password"
+    stored.parent.mkdir()
+    stored.write_text("SYSTEMD-ENCRYPTED-garbage", encoding="utf-8")
+    monkeypatch.setattr(credential, "DEFAULT_CREDSTORE", stored.parent)
+    master = tmp_path / "keepass.kdbx"
+    master.write_bytes(b"x")
+
+    code, _, err = run(capsys, ["verify", "--master", str(master)])
+
+    assert code == 1
+    assert "sudo keepass-auto-merge" in err
